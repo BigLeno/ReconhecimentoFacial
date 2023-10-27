@@ -14,7 +14,7 @@ class DB:
     directory = 'DB'
 
     def __init__(self) -> None:
-        print("Iniciando o sistema... \n Carregando o Banco de Dados... ")
+        print("Iniciando o sistema... \nCarregando o Banco de Dados... ")
         self.images, self.names = [], []
         self.get_img_and_name_general()
         print("Banco carregado com sucesso... \nIniciando o encoding das imagens...")
