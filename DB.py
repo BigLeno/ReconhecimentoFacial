@@ -1,9 +1,11 @@
 from cv2 import (imread, cvtColor, COLOR_BGR2RGB, VideoCapture, resize, rectangle, putText, FONT_HERSHEY_SIMPLEX,
-                 imshow, waitKey, destroyAllWindows, namedWindow)
+                 imshow, waitKey, destroyAllWindows, namedWindow, imwrite)
 from face_recognition import (face_encodings, face_locations, compare_faces, face_distance)
-from os import (listdir, path)
+from os import (listdir, path, makedirs)
 from multiprocessing import Pool
 from numpy import argmin
+from string import ascii_lowercase
+from random import choice
 
 
 class DB:
@@ -46,6 +48,10 @@ class FaceRecognitionSystem:
         namedWindow('Webcam')
 
     @staticmethod
+    def generate_unique_id(length=8):
+        return ''.join(choice(ascii_lowercase) for _ in range(length))
+
+    @staticmethod
     def find_faces(img):
         """
             Encontra e codifica faces na imagem fornecida.
@@ -56,9 +62,6 @@ class FaceRecognitionSystem:
         return list(zip(encode_cur_frame, faces_cur_frame))
 
     def process_frame(self, img):
-        """
-            Processa um quadro de vídeo em busca de faces correspondentes.
-        """
         access_granted = False
         nome = ""
 
@@ -68,20 +71,26 @@ class FaceRecognitionSystem:
             matches = compare_faces(self.dataBase.encode_list, encodeFace, self.limite_distancia)
             distancia = face_distance(self.dataBase.encode_list, encodeFace)
             match = argmin(distancia)
+            top, right, bottom, left = faceLoc
+            top *= 4
+            right *= 4
+            bottom *= 4
+            left *= 4
 
             if matches[match]:
                 nome = self.dataBase.names[match].upper()
                 access_granted = True  # Acesso liberado se houver uma correspondência
 
             if distancia[match] <= self.limite_distancia:
-                top, right, bottom, left = faceLoc
-                top *= 4
-                right *= 4
-                bottom *= 4
-                left *= 4
-
                 rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
                 putText(img, nome, (left, top - 10), FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            else:
+                print("Rosto desconhecido salvo!")
+                unique_id = self.generate_unique_id()
+                unknown_face = img[top:bottom, left:right]
+                rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+                makedirs("RD", exist_ok=True)
+                imwrite(f"RD/{unique_id}.jpg", unknown_face)
 
         return access_granted, nome
 
@@ -99,9 +108,6 @@ class FaceRecognitionSystem:
             if access_granted:
                 # Libere o acesso aqui (por exemplo, abra uma porta)
                 print("Acesso Liberado")
-            else:
-                # Negue o acesso aqui (por exemplo, exiba uma mensagem de negação)
-                print("Acesso Negado")
 
             imshow('Webcam', img)
 
