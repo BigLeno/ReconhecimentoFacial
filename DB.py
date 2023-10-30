@@ -45,6 +45,8 @@ class FaceRecognitionSystem:
         self.dataBase = database
         self.limite_distancia = distance_limit
         self.cap = VideoCapture(0)  # Inicializa a câmera
+        self.cap.set(3, 640)  # Define a largura para 640 pixels (VGA)
+        self.cap.set(4, 480)  # Define a altura para 480 pixels (VGA)
         namedWindow('Webcam')
 
     @staticmethod
