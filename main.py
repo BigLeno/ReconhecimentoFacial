@@ -1,25 +1,35 @@
 import cv2
-import numpy as np
-import face_recognition
+from face_recognition import face_encodings
+from os import listdir, path
+from multiprocessing import Pool
 
-imgFidel = face_recognition.load_image_file('images/fidel.jpg')
-imgFidel = cv2.cvtColor(imgFidel, cv2.COLOR_BGR2RGB)
-imgTeste = face_recognition.load_image_file('images/fidel teste.jpg')
-imgTeste = cv2.cvtColor(imgTeste, cv2.COLOR_BGR2RGB)
+class DB:
+    directory = 'DB'
 
-faceLoc = face_recognition.face_locations(imgFidel)[0]
-encodeFidel = face_recognition.face_encodings(imgFidel)[0]
-cv2.rectangle(imgFidel, (faceLoc[3], faceLoc[0]), (faceLoc[1], faceLoc[2]), (255, 0, 255), 2)
+    def __init__(self) -> None:
+        print("Iniciando o sistema... \nCarregando o Banco de Dados... ")
+        self.images, self.names = [], []
+        self.get_img_and_name_general()
+        print("Banco carregado com sucesso... \nIniciando o encoding das imagens...")
+        self.encode_list = []
+        self.find_encodings()
+        print("Encoding terminado com sucesso... \nSistema iniciado com sucesso")
 
-faceLocTeste = face_recognition.face_locations(imgTeste)[0]
-encodeTeste = face_recognition.face_encodings(imgTeste)[0]
-cv2.rectangle(imgTeste, (faceLocTeste[3], faceLocTeste[0]), (faceLocTeste[1], faceLocTeste[2]), (255, 0, 255), 2)
+    def get_img_and_name_general(self) -> None:
+        for cl in listdir(DB.directory):
+            self.images.append(cv2.imread(f'{DB.directory}/{cl}'))
+            self.names.append(path.splitext(cl)[0])
 
-resultados = face_recognition.compare_faces([encodeFidel], encodeTeste)
-distancia = face_recognition.face_distance([encodeFidel], encodeTeste)
-print(resultados, distancia)
+    def find_encodings(self) -> None:
+        with Pool(processes=200) as pool:
+            self.encode_list = pool.map(self.encode_face, self.images)
 
-cv2.imshow("Fidel", imgFidel)
-cv2.imshow("Teste", imgTeste)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    def encode_face(self, image):
+        encoding = face_encodings(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        if encoding:
+            return encoding[0]
+        return None
+
+if __name__ == '__main__':
+    myDatabase = DB()
+    print(myDatabase.names)
