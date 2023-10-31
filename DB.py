@@ -55,9 +55,6 @@ class FaceRecognitionSystem:
 
     @staticmethod
     def find_faces(img):
-        """
-            Encontra e codifica faces na imagem fornecida.
-        """
         images = cvtColor(resize(img, (0, 0), None, 0.25, 0.25), COLOR_BGR2RGB)
         faces_cur_frame = face_locations(images)
         encode_cur_frame = face_encodings(images, faces_cur_frame)
@@ -97,11 +94,6 @@ class FaceRecognitionSystem:
         return access_granted, nome
 
     def run(self):
-        """
-        Executa o sistema de reconhecimento facial em tempo real.
-
-        Pressione 'q' para encerrar a execução.
-        """
         while True:
             success, img = self.cap.read()
 
