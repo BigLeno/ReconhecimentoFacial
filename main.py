@@ -7,7 +7,7 @@ from numpy import argmin
 from string import ascii_lowercase
 from random import choice
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 csv_directory = "registro_iteracoes.csv"
 data_hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -58,6 +58,7 @@ class FaceRecognitionSystem:
         """
         self.dataBase = database
         self.limite_distancia = distance_limit
+        self.unknown_faces_seen_at = {}
         self.cap = VideoCapture(0)  # Inicializa a câmera
         self.cap.set(3, 640)  # Define a largura para 640 pixels (VGA)
         self.cap.set(4, 480)  # Define a altura para 480 pixels (VGA)
@@ -82,6 +83,7 @@ class FaceRecognitionSystem:
     def process_frame(self, img):
         access_granted = False
         nome = ""
+        current_time = datetime.now()
 
         encodings_and_locations = self.find_faces(img)
 
@@ -106,13 +108,23 @@ class FaceRecognitionSystem:
                 print("Rosto desconhecido encontrado")
                 data = pd.read_csv(csv_directory)
                 unique_id = self.generate_unique_id()
-                data.loc[len(data)] = [data_hora, "Não reconhecido", f'RD/{unique_id}']
-                unknown_face = img[top:bottom, left:right]
-                rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
-                self.save_img("RD", unknown_face, unique_id)
-                self.save_img("CACHE", unknown_face)
-                data.to_csv(csv_directory, index=False)
-                print("Rosto salvo")
+
+                # Obtenha a última chave (que será sempre o último item do dicionário)
+                last_key = list(self.unknown_faces_seen_at.keys())[-1] if self.unknown_faces_seen_at else None
+                last_seen = self.unknown_faces_seen_at.get(last_key, None)
+
+                # Verifique se já se passaram 5 segundos desde a última imagem do último rosto desconhecido
+                if last_seen is None or (current_time - last_seen).total_seconds() >= 5:
+                    data_hora = current_time.strftime("%Y-%m-%d %H:%M:%S")
+                    data.loc[len(data)] = [data_hora, "Não reconhecido", f'RD/{unique_id}']
+                    unknown_face = img[top:bottom, left:right]
+                    rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+                    self.save_img("RD", unknown_face, unique_id)
+                    self.save_img("CACHE", unknown_face)
+                    self.unknown_faces_seen_at[unique_id] = current_time
+                    data.to_csv(csv_directory, index=False)
+                    print("Rosto salvo")
+
 
         return access_granted, nome
 
