@@ -11,8 +11,7 @@ from datetime import datetime, timedelta
 
 csv_directory = "registro_iteracoes.csv"
 data_hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-current_time = datetime.now()
-time_delay = 5
+
 
 class DB:
     """Classe responsável por cuidar do acesso ao banco de dados com as imagens"""
@@ -85,6 +84,8 @@ class FaceRecognitionSystem:
         access_granted = False
         nome = ""
         
+        current_time = datetime.now()
+        time_delay = 5
 
         encodings_and_locations = self.find_faces(img)
 
@@ -106,50 +107,50 @@ class FaceRecognitionSystem:
                 rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
                 putText(img, nome, (left, top - 10), FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
             else:
-                print("Rosto desconhecido encontrado")
                 data = pd.read_csv(csv_directory)
                 unique_id = self.generate_unique_id()
 
                 last_key = list(self.unknown_faces_seen_at.keys())[-1] if self.unknown_faces_seen_at else None
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
+                
+                unknown_face = img[top:bottom, left:right]
+                rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
 
                 if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
+                    print("Rosto desconhecido encontrado")
+                    
                     data_hora = current_time.strftime("%Y-%m-%d %H:%M:%S")
                     data.loc[len(data)] = [data_hora, "Não reconhecido", f'RD/{unique_id}']
-                    unknown_face = img[top:bottom, left:right]
-                    rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+                    
                     self.save_img("RD", unknown_face, unique_id)
                     self.save_img("CACHE", unknown_face)
                     self.unknown_faces_seen_at[unique_id] = current_time
                     data.to_csv(csv_directory, index=False)
-                    print("Rosto salvo")
+                    print("Acesso registrado!")
 
 
         return access_granted, nome
 
     def run(self):
-        time_delay = 10  # Defina o tempo de atraso (em segundos) conforme necessário
-        last_access_time = datetime.now() - timedelta(seconds=time_delay)  # Inicialize com um tempo que permitirá a primeira ação
+        timer = 5  # Defina o tempo de atraso (em segundos) conforme necessário
+        last_access_time = datetime.now() - timedelta(seconds=timer)  # Inicialize com um tempo que permitirá a primeira ação
 
         while True:
             success, img = self.cap.read()
 
             current_time = datetime.now()
             time_elapsed = (current_time - last_access_time).total_seconds()
+            access_granted, nome = self.process_frame(img)
 
-            if time_elapsed >= time_delay:
-                access_granted, nome = self.process_frame(img)
-
-                if access_granted:
+            if access_granted:
+                if time_elapsed >= timer:
                     print(f"Seja bem-vindo {nome}, acesso liberado!")
-
-                    # Salvar na planilha
                     data_hora = current_time.strftime("%Y-%m-%d %H:%M:%S")
                     data = pd.read_csv(csv_directory)
                     data.loc[len(data)] = [data_hora, "Reconhecido", f'DB/{nome.lower()}.jpg']
                     data.to_csv(csv_directory, index=False)
-
-                    last_access_time = current_time  # Atualiza o tempo do último acesso
+                    last_access_time = current_time  
+                    print("Acesso registrado!")
 
             imshow('Webcam', img)
 
