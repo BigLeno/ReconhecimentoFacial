@@ -7,20 +7,24 @@ from numpy import argmin
 from string import ascii_lowercase
 from random import choice
 import pandas as pd
-from time import strftime
+from datetime import datetime
+
+csv_directory = "registro_iteracoes.csv"
+data_hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 class DB:
     """Classe responsável por cuidar do acesso ao banco de dados com as imagens"""
     directory = 'DB'
+    cache_directory = 'CACHE'
 
     def __init__(self) -> None:
         print("Iniciando o sistema... \nCarregando o Banco de Dados... ")
-        self.images, self.names = [], []
-        self.get_img_and_name_general()
+        self.images, self.names, self.cache = [], [], []
+        self.get_img_and_name_general(), self.get_cache()
         print("Banco carregado com sucesso... \nIniciando o encoding das imagens...")
-        self.encode_list = []
-        self.find_encodings()
+        self.encode_list, self.encode_list_unknown= [], []
+        self.find_encodings(), self.find_cache()
         print("Encoding terminado com sucesso... \nSistema iniciado com sucesso")
 
     def get_img_and_name_general(self) -> None:
@@ -28,9 +32,17 @@ class DB:
             self.images.append(imread(f'{DB.directory}/{cl}'))
             self.names.append(path.splitext(cl)[0])
 
+    def get_cache(self) -> None:
+        for cl in listdir(DB.cache_directory):
+            self.cache.append(imread(f'{DB.cache_directory}/{cl}'))
+
     def find_encodings(self) -> None:
         with Pool(processes=None) as pool:
             self.encode_list = pool.map(self.encode_face, self.images)
+
+    def find_cache(self) -> None:
+        with Pool(processes=None) as pool:
+            self.encode_list_unknown = pool.map(self.encode_face, self.cache)
 
     @staticmethod
     def encode_face(image) -> None:
@@ -45,7 +57,6 @@ class FaceRecognitionSystem:
             Inicializa o sistema de reconhecimento facial.
         """
         self.dataBase = database
-        self.unknown_faces_data = pd.DataFrame(columns=["ID", "Timestamp"])
         self.limite_distancia = distance_limit
         self.cap = VideoCapture(0)  # Inicializa a câmera
         self.cap.set(3, 640)  # Define a largura para 640 pixels (VGA)
@@ -58,13 +69,15 @@ class FaceRecognitionSystem:
 
     @staticmethod
     def find_faces(img):
-        """
-            Encontra e codifica faces na imagem fornecida.
-        """
         images = cvtColor(resize(img, (0, 0), None, 0.25, 0.25), COLOR_BGR2RGB)
         faces_cur_frame = face_locations(images)
         encode_cur_frame = face_encodings(images, faces_cur_frame)
         return list(zip(encode_cur_frame, faces_cur_frame))
+    
+    @staticmethod
+    def save_img(directory, img, archive_name="cache"):
+        makedirs(directory, exist_ok=True)
+        imwrite(f"{directory}/{archive_name}.jpg", img)
 
     def process_frame(self, img):
         access_granted = False
@@ -90,19 +103,20 @@ class FaceRecognitionSystem:
                 rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
                 putText(img, nome, (left, top - 10), FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
             else:
-                print("Rosto desconhecido salvo!")
+                print("Rosto desconhecido encontrado")
+                data = pd.read_csv(csv_directory)
                 unique_id = self.generate_unique_id()
-                new_entry = pd.DataFrame({"ID": [unique_id], "Timestamp": [strftime("%Y-%m-%d %H:%M:%S")]})
-                self.unknown_faces_data = pd.concat([self.unknown_faces_data, new_entry], ignore_index=True)
+                data.loc[len(data)] = [data_hora, "Não reconhecido", f'RD/{unique_id}']
+                unknown_face = img[top:bottom, left:right]
+                rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+                self.save_img("RD", unknown_face, unique_id)
+                self.save_img("CACHE", unknown_face)
+                data.to_csv(csv_directory, index=False)
+                print("Rosto salvo")
 
         return access_granted, nome
 
     def run(self):
-        """
-        Executa o sistema de reconhecimento facial em tempo real.
-
-        Pressione 'q' para encerrar a execução.
-        """
         while True:
             success, img = self.cap.read()
 
