@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 
 csv_directory = "registro_iteracoes.csv"
 data_hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+current_time = datetime.now()
+time_delay = 5
 
 class DB:
     """Classe responsável por cuidar do acesso ao banco de dados com as imagens"""
@@ -83,7 +84,7 @@ class FaceRecognitionSystem:
     def process_frame(self, img):
         access_granted = False
         nome = ""
-        current_time = datetime.now()
+        
 
         encodings_and_locations = self.find_faces(img)
 
@@ -109,12 +110,10 @@ class FaceRecognitionSystem:
                 data = pd.read_csv(csv_directory)
                 unique_id = self.generate_unique_id()
 
-                # Obtenha a última chave (que será sempre o último item do dicionário)
                 last_key = list(self.unknown_faces_seen_at.keys())[-1] if self.unknown_faces_seen_at else None
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
 
-                # Verifique se já se passaram 5 segundos desde a última imagem do último rosto desconhecido
-                if last_seen is None or (current_time - last_seen).total_seconds() >= 5:
+                if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
                     data_hora = current_time.strftime("%Y-%m-%d %H:%M:%S")
                     data.loc[len(data)] = [data_hora, "Não reconhecido", f'RD/{unique_id}']
                     unknown_face = img[top:bottom, left:right]
@@ -129,14 +128,28 @@ class FaceRecognitionSystem:
         return access_granted, nome
 
     def run(self):
+        time_delay = 10  # Defina o tempo de atraso (em segundos) conforme necessário
+        last_access_time = datetime.now() - timedelta(seconds=time_delay)  # Inicialize com um tempo que permitirá a primeira ação
+
         while True:
             success, img = self.cap.read()
 
-            access_granted, nome = self.process_frame(img)
+            current_time = datetime.now()
+            time_elapsed = (current_time - last_access_time).total_seconds()
 
-            if access_granted:
-                # Libere o acesso aqui (por exemplo, abra uma porta)
-                print("Acesso Liberado")
+            if time_elapsed >= time_delay:
+                access_granted, nome = self.process_frame(img)
+
+                if access_granted:
+                    print(f"Seja bem-vindo {nome}, acesso liberado!")
+
+                    # Salvar na planilha
+                    data_hora = current_time.strftime("%Y-%m-%d %H:%M:%S")
+                    data = pd.read_csv(csv_directory)
+                    data.loc[len(data)] = [data_hora, "Reconhecido", f'DB/{nome.lower()}.jpg']
+                    data.to_csv(csv_directory, index=False)
+
+                    last_access_time = current_time  # Atualiza o tempo do último acesso
 
             imshow('Webcam', img)
 
@@ -145,6 +158,7 @@ class FaceRecognitionSystem:
 
         self.cap.release()
         destroyAllWindows()
+
 
 
 if __name__ == '__main__':
