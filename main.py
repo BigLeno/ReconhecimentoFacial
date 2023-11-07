@@ -16,15 +16,14 @@ data_hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 class DB:
     """Classe responsável por cuidar do acesso ao banco de dados com as imagens"""
     directory = 'DB'
-    cache_directory = 'CACHE'
 
     def __init__(self) -> None:
         print("Iniciando o sistema... \nCarregando o Banco de Dados... ")
-        self.images, self.names, self.cache = [], [], []
-        self.get_img_and_name_general(), self.get_cache()
+        self.images, self.names= [], []
+        self.get_img_and_name_general()
         print("Banco carregado com sucesso... \nIniciando o encoding das imagens...")
-        self.encode_list, self.encode_list_unknown= [], []
-        self.find_encodings(), self.find_cache()
+        self.encode_list =  []
+        self.find_encodings()
         print("Encoding terminado com sucesso... \nSistema iniciado com sucesso")
 
     def get_img_and_name_general(self) -> None:
@@ -32,17 +31,9 @@ class DB:
             self.images.append(imread(f'{DB.directory}/{cl}'))
             self.names.append(path.splitext(cl)[0])
 
-    def get_cache(self) -> None:
-        for cl in listdir(DB.cache_directory):
-            self.cache.append(imread(f'{DB.cache_directory}/{cl}'))
-
     def find_encodings(self) -> None:
         with Pool(processes=None) as pool:
             self.encode_list = pool.map(self.encode_face, self.images)
-
-    def find_cache(self) -> None:
-        with Pool(processes=None) as pool:
-            self.encode_list_unknown = pool.map(self.encode_face, self.cache)
 
     @staticmethod
     def encode_face(image) -> None:
@@ -76,7 +67,7 @@ class FaceRecognitionSystem:
         return list(zip(encode_cur_frame, faces_cur_frame))
     
     @staticmethod
-    def save_img(directory, img, archive_name="cache"):
+    def save_img(directory, img, archive_name="sem_nome"):
         makedirs(directory, exist_ok=True)
         imwrite(f"{directory}/{archive_name}.jpg", img)
 
@@ -123,7 +114,6 @@ class FaceRecognitionSystem:
                     data.loc[len(data)] = [data_hora, "Não reconhecido", f'RD/{unique_id}']
                     
                     self.save_img("RD", unknown_face, unique_id)
-                    self.save_img("CACHE", unknown_face)
                     self.unknown_faces_seen_at[unique_id] = current_time
                     data.to_csv(csv_directory, index=False)
                     print("Acesso registrado!")
@@ -159,7 +149,6 @@ class FaceRecognitionSystem:
 
         self.cap.release()
         destroyAllWindows()
-
 
 
 if __name__ == '__main__':
