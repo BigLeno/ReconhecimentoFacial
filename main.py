@@ -43,6 +43,10 @@ class DB:
 
 
 class FaceRecognitionSystem:
+
+    colors = {"red": (0, 0, 255),"green": (0, 255, 0),"blue": (255, 0, 0)}
+    
+    
     def __init__(self, database, distance_limit):
         """
             Inicializa o sistema de reconhecimento facial.
@@ -74,7 +78,10 @@ class FaceRecognitionSystem:
     def compare_faces_and_get_distances(self, data, new_faces):
         return (compare_faces(data, new_faces, self.limite_distancia),
                 face_distance(data, new_faces), argmin(face_distance(data, new_faces)))
-
+    
+    def put_rectangles_and_text(self, image, top, right, bottom, left, color, text=''):
+        rectangle(image, (left, top), (right, bottom), FaceRecognitionSystem.colors[color], 2)
+        putText(image, text, (left, top - 10), FONT_HERSHEY_SIMPLEX, 0.9, FaceRecognitionSystem.colors[color], 2)
 
     def process_frame(self, img):
         access_granted = False
@@ -87,19 +94,12 @@ class FaceRecognitionSystem:
 
         for encodeFace, faceLoc in encodings_and_locations:
             matches, distancia, match = self.compare_faces_and_get_distances(self.dataBase.encode_list, encodeFace)
-            top, right, bottom, left = faceLoc
-            top *= 4
-            right *= 4
-            bottom *= 4
-            left *= 4
+            top, right, bottom, left = [x * 4 for x in faceLoc]
 
-            if matches[match]:
+            if matches[match] or distancia[match] <= self.limite_distancia:
                 nome = self.dataBase.names[match].upper()
                 access_granted = True  # Acesso liberado se houver uma correspondência
-
-            if distancia[match] <= self.limite_distancia:
-                rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
-                putText(img, nome, (left, top - 10), FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                self.put_rectangles_and_text(img, top, right, bottom, left, 'green', nome)
             else:
                 data = pd.read_csv(csv_directory)
                 unique_id = self.generate_unique_id()
@@ -108,7 +108,7 @@ class FaceRecognitionSystem:
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
                 
                 unknown_face = img[top:bottom, left:right]
-                rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+                self.put_rectangles_and_text(img, top, right, bottom, left, 'red')
 
                 if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
                     print("Rosto desconhecido encontrado")
