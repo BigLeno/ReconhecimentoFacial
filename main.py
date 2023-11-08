@@ -71,6 +71,11 @@ class FaceRecognitionSystem:
         makedirs(directory, exist_ok=True)
         imwrite(f"{directory}/{archive_name}.jpg", img)
 
+    def compare_faces_and_get_distances(self, data, new_faces):
+        return (compare_faces(data, new_faces, self.limite_distancia),
+                face_distance(data, new_faces), argmin(face_distance(data, new_faces)))
+
+
     def process_frame(self, img):
         access_granted = False
         nome = ""
@@ -81,9 +86,7 @@ class FaceRecognitionSystem:
         encodings_and_locations = self.find_faces(img)
 
         for encodeFace, faceLoc in encodings_and_locations:
-            matches = compare_faces(self.dataBase.encode_list, encodeFace, self.limite_distancia)
-            distancia = face_distance(self.dataBase.encode_list, encodeFace)
-            match = argmin(distancia)
+            matches, distancia, match = self.compare_faces_and_get_distances(self.dataBase.encode_list, encodeFace)
             top, right, bottom, left = faceLoc
             top *= 4
             right *= 4
