@@ -18,45 +18,31 @@ class DB:
     directory = 'DB'
 
     def __init__(self) -> None:
-        print("Iniciando o sistema... \nCarregando o Banco de Dados... ")
         self.images, self.names= [], []
         self.get_img_and_name_general()
-        print("Banco carregado com sucesso... \nIniciando o encoding das imagens...")
-        self.encode_list =  []
-        self.find_encodings()
-        print("Encoding terminado com sucesso... \nSistema iniciado com sucesso")
-
+        
     def get_img_and_name_general(self) -> None:
+        print("Carregando o Banco de Dados... ")
         for cl in listdir(DB.directory):
             self.images.append(imread(f'{DB.directory}/{cl}'))
             self.names.append(path.splitext(cl)[0])
-
-    def find_encodings(self) -> None:
-        with Pool(processes=None) as pool:
-            self.encode_list = pool.map(self.encode_face, self.images)
-
-    @staticmethod
-    def encode_face(image) -> None:
-        encoding = face_encodings(cvtColor(image, COLOR_BGR2RGB))
-        if encoding:
-            return encoding[0]
+        print("Banco de Dados carregado com sucesso!")
 
 
 class FaceRecognitionSystem:
-
-    colors = {"red": (0, 0, 255),"green": (0, 255, 0),"blue": (255, 0, 0)}
-    
-    
-    def __init__(self, database, distance_limit):
+    def __init__(self, distance_limit=0.4):
         """
             Inicializa o sistema de reconhecimento facial.
         """
-        self.dataBase = database
-        self.limite_distancia = distance_limit
-        self.unknown_faces_seen_at = {}
-        self.set_webcam()
+        self.dataBase, self.limite_distancia = myDatabase, distance_limit
+        self.unknown_faces_seen_at, self.encode_list= {}, []
+        print("Iniciando o Sistema de Reconhecimento Facial... \nIniciando o encoding das imagens...")
+        self.find_encodings()
+        print("Encoding terminado com sucesso... \nCarregando a Webcam...")
+        self.getWebcam()
+        print("Webcam carregada com sucesso... \nSistema iniciado sem falhas")
 
-    def set_webcam(self):
+    def getWebcam(self):
         self.cap = VideoCapture(0)  # Inicializa a câmera
         self.cap.set(3, 640)  # Define a largura para 640 pixels (VGA)
         self.cap.set(4, 480)  # Define a altura para 480 pixels (VGA)
@@ -65,7 +51,17 @@ class FaceRecognitionSystem:
     @staticmethod
     def generate_unique_id(length=8):
         return ''.join(choice(ascii_lowercase) for _ in range(length))
+    
+    def find_encodings(self) -> None:
+        with Pool(processes=None) as pool:
+            self.encode_list = pool.map(self.encode_face, self.dataBase.images)
 
+    @staticmethod
+    def encode_face(image) -> None:
+        encoding = face_encodings(cvtColor(image, COLOR_BGR2RGB))
+        if encoding:
+            return encoding[0]
+    
     @staticmethod
     def find_faces(img):
         images = cvtColor(resize(img, (0, 0), None, 0.25, 0.25), COLOR_BGR2RGB)
@@ -78,14 +74,6 @@ class FaceRecognitionSystem:
         makedirs(directory, exist_ok=True)
         imwrite(f"{directory}/{archive_name}.jpg", img)
 
-    def compare_faces_and_get_distances(self, data, new_faces):
-        return (compare_faces(data, new_faces, self.limite_distancia),
-                face_distance(data, new_faces), argmin(face_distance(data, new_faces)))
-    
-    def put_rectangles_and_text(self, image, top, right, bottom, left, color, text=''):
-        rectangle(image, (left, top), (right, bottom), FaceRecognitionSystem.colors[color], 2)
-        putText(image, text, (left, top - 10), FONT_HERSHEY_SIMPLEX, 0.9, FaceRecognitionSystem.colors[color], 2)
-
     def process_frame(self, img):
         access_granted = False
         nome = ""
@@ -96,13 +84,22 @@ class FaceRecognitionSystem:
         encodings_and_locations = self.find_faces(img)
 
         for encodeFace, faceLoc in encodings_and_locations:
-            matches, distancia, match = self.compare_faces_and_get_distances(self.dataBase.encode_list, encodeFace)
-            top, right, bottom, left = [x * 4 for x in faceLoc]
+            matches = compare_faces(self.encode_list, encodeFace, self.limite_distancia)
+            distancia = face_distance(self.encode_list, encodeFace)
+            match = argmin(distancia)
+            top, right, bottom, left = faceLoc
+            top *= 4
+            right *= 4
+            bottom *= 4
+            left *= 4
 
-            if matches[match] or distancia[match] <= self.limite_distancia:
+            if matches[match]:
                 nome = self.dataBase.names[match].upper()
                 access_granted = True  # Acesso liberado se houver uma correspondência
-                self.put_rectangles_and_text(img, top, right, bottom, left, 'green', nome)
+
+            if distancia[match] <= self.limite_distancia:
+                rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
+                putText(img, nome, (left, top - 10), FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
             else:
                 data = pd.read_csv(csv_directory)
                 unique_id = self.generate_unique_id()
@@ -111,7 +108,7 @@ class FaceRecognitionSystem:
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
                 
                 unknown_face = img[top:bottom, left:right]
-                self.put_rectangles_and_text(img, top, right, bottom, left, 'red')
+                rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
 
                 if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
                     print("Rosto desconhecido encontrado")
@@ -158,7 +155,6 @@ class FaceRecognitionSystem:
 
 
 if __name__ == '__main__':
-    limite_distancia = 0.4
     myDatabase = DB()
-    myFaceRecognitionSystem = FaceRecognitionSystem(myDatabase, limite_distancia)
+    myFaceRecognitionSystem = FaceRecognitionSystem()
     myFaceRecognitionSystem.run()
