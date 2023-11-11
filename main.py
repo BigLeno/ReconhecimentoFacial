@@ -47,15 +47,29 @@ class FaceRecognitionSystem:
         self.cap.set(3, 640)  # Define a largura para 640 pixels (VGA)
         self.cap.set(4, 480)  # Define a altura para 480 pixels (VGA)
         namedWindow('Webcam')
-
-    @staticmethod
-    def generate_unique_id(length=8) -> str:
-        return ''.join(choice(ascii_lowercase) for _ in range(length))
     
     def find_encodings(self) -> None:
         with Pool(processes=None) as pool:
             self.encode_list = pool.map(self.encode_face, self.dataBase.images)
 
+    @staticmethod
+    def save_img(directory, img, archive_name="sem_nome") -> None:
+        makedirs(directory, exist_ok=True)
+        imwrite(f"{directory}/{archive_name}.jpg", img)
+
+    def register_acess(self, relative_path:str, acess_type:int,  name:str) -> None:
+        data = pd.read_csv(self.csv_directory)
+        data.loc[len(data)] = [self.date_and_time, self.access_types[acess_type], f'{relative_path}/{name.lower()}.jpg']
+        data.to_csv(self.csv_directory, index=False)
+    
+    def put_rectangles_and_text(self, image, positions:tuple, color:str, text='') -> None:
+        rectangle(image, (positions[3], positions[0]), (positions[1], positions[2]), self.colors[color], 2)
+        putText(image, text, (positions[3], positions[0]), FONT_HERSHEY_SIMPLEX, 0.9, self.colors[color], 2)
+
+    @staticmethod
+    def generate_unique_id(length=8) -> str:
+        return ''.join(choice(ascii_lowercase) for _ in range(length))
+    
     @staticmethod
     def encode_face(image) -> Optional[List]:
         encoding = face_encodings(cvtColor(image, COLOR_BGR2RGB))
@@ -71,26 +85,12 @@ class FaceRecognitionSystem:
             face_locations(cvtColor(resize(img, (0, 0), None, 0.25, 0.25), COLOR_BGR2RGB))
             ))
     
-    @staticmethod
-    def save_img(directory, img, archive_name="sem_nome") -> None:
-        makedirs(directory, exist_ok=True)
-        imwrite(f"{directory}/{archive_name}.jpg", img)
-    
-    def register_acess(self, relative_path:str, acess_type:int,  name:str) -> None:
-        data = pd.read_csv(self.csv_directory)
-        data.loc[len(data)] = [self.date_and_time, self.access_types[acess_type], f'{relative_path}/{name.lower()}.jpg']
-        data.to_csv(self.csv_directory, index=False)
-
     def compare_faces_and_get_distances(self, data, new_faces) -> Tuple[list, list, int]:
         return(
             compare_faces(data, new_faces, self.limite_distancia),
             face_distance(data, new_faces), 
             argmin(face_distance(data, new_faces))
         )
-
-    def put_rectangles_and_text(self, image, positions:tuple, color:str, text='') -> None:
-        rectangle(image, (positions[3], positions[0]), (positions[1], positions[2]), self.colors[color], 2)
-        putText(image, text, (positions[3], positions[0]), FONT_HERSHEY_SIMPLEX, 0.9, self.colors[color], 2)
 
     def process_frame(self, img) -> Tuple[bool, str]:
         access_granted = False
@@ -113,14 +113,12 @@ class FaceRecognitionSystem:
 
                 last_key = list(self.unknown_faces_seen_at.keys())[-1] if self.unknown_faces_seen_at else None
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
-                
-                unknown_face = img[top:bottom, left:right]
                 self.put_rectangles_and_text(img, (top, right, bottom, left), 'red')
 
                 if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
                     print("Rosto desconhecido encontrado")
                     self.register_acess('RD', 1, unique_id)
-                    self.save_img("RD", unknown_face, unique_id)
+                    self.save_img("RD", img[top:bottom, left:right], unique_id)
                     self.unknown_faces_seen_at[unique_id] = current_time
                     print("Acesso registrado!")
 
@@ -151,7 +149,7 @@ class FaceRecognitionSystem:
             imshow('Webcam', img)
 
             if waitKey(1) & 0xFF == ord('q'):
-                print("Sistema sendo parado...")
+                print("Encerrando sistema...")
                 break
         
         self.cap.release()
