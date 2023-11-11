@@ -10,7 +10,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Tuple, Optional, List
 
-
 class DB:
     def __init__(self, db_directory='DB') -> None:
         """Objeto responsável por cuidar do acesso ao banco de dados com as imagens"""
