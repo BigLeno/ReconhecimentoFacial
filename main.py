@@ -30,6 +30,7 @@ class FaceRecognitionSystem:
     def __init__(self, distance_limit=0.4) -> None:
         """Objeto que representa o sistema de reconhecimento facial"""
         self.dataBase, self.limite_distancia = DB(), distance_limit
+        self.last_file_count = self.get_file_count()
         self.unknown_faces_seen_at, self.encode_list= {}, []
         self.colors = {'red':(0,0,255), 'green':(0,255,0), 'blue':(255,0,0)}
         self.quality_settings = {'qvga': (320, 240),'vga': (640, 480),'hd': (1280, 720),'full_hd': (1920, 1080)}
@@ -68,6 +69,23 @@ class FaceRecognitionSystem:
     def put_rectangles_and_text(self, image, positions:tuple, color:str, text:Optional[str]='') -> None:
         rectangle(image, (positions[3], positions[0]), (positions[1], positions[2]), self.colors[color], 2)
         putText(image, text, (positions[3], positions[0]), FONT_HERSHEY_SIMPLEX, 0.9, self.colors[color], 2)
+
+    def get_file_count(self):
+        if path.exists(self.dataBase.db_directory) and path.isdir(self.dataBase.db_directory):
+            files = listdir(self.dataBase.db_directory)
+            return len(files)
+        else:
+            return 0
+    
+    def monitor_directory(self):
+       current_file_count = self.get_file_count()
+       if current_file_count != self.last_file_count:
+            print("\nA pasta foi atualizada...")
+            self.dataBase = DB()
+            print("Iniciando o encoding das imagens...")
+            self.find_encodings()
+            print("Encoding terminado com sucesso.. \nSistema com dados atualizados com sucesso!\n")
+            self.last_file_count = current_file_count
 
     @staticmethod
     def generate_unique_id(length=8) -> str:
@@ -139,6 +157,8 @@ class FaceRecognitionSystem:
             if not success:
                 print("Um problema com a webcam foi encontrado!")
                 break
+
+            self.monitor_directory()
 
             current_time = datetime.now()
             time_elapsed = (current_time - last_access_time).total_seconds()
