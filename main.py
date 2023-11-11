@@ -80,11 +80,13 @@ class FaceRecognitionSystem:
     def monitor_directory(self):
        current_file_count = self.get_file_count()
        if current_file_count != self.last_file_count:
+            print("\n---------------------------\n")
             print("\nA pasta foi atualizada...")
             self.dataBase = DB()
             print("Iniciando o encoding das imagens...")
             self.find_encodings()
-            print("Encoding terminado com sucesso.. \nSistema com dados atualizados com sucesso!\n")
+            print("Encoding terminado com sucesso.. \nDados atualizados com sucesso!\n")
+            print("\n---------------------------\n")
             self.last_file_count = current_file_count
 
     @staticmethod
