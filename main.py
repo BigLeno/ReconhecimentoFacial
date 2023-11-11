@@ -16,6 +16,7 @@ class DB:
     directory = 'DB'
 
     def __init__(self) -> None:
+        """Inicializador do Database"""
         self.images, self.names= [], []
         self.get_img_and_name_general()
         
@@ -31,22 +32,18 @@ class FaceRecognitionSystem:
 
 
     def __init__(self, distance_limit=0.4) -> None:
-        """
-            Inicializa o sistema de reconhecimento facial.
-        """
+        """Inicializador do sistema de reconhecimento facial"""
         self.dataBase, self.limite_distancia = myDatabase, distance_limit
         self.unknown_faces_seen_at, self.encode_list= {}, []
         self.colors = {'red':(0,0,255), 'green':(0,255,0), 'blue':(255,0,0)}
         self.access_types = ["Reconhecido", "Não reconhecido"]
-        self.current_time1 = datetime.now()
         self.date_and_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.timer = 5  #Em segundos
         self.csv_directory = "registro_iteracoes.csv"
         print("Iniciando o Sistema de Reconhecimento Facial... \nIniciando o encoding das imagens...")
         self.find_encodings()
-        print("Encoding terminado com sucesso... \nCarregando a Webcam...")
+        print("Encoding terminado com sucesso..")
         self.getWebcam()
-        print("Webcam carregada com sucesso... \nTentando ler Webcam...")
+        print("Sistema iniciado sem falhas")
 
     def getWebcam(self) -> None:
         self.cap = VideoCapture(0)  # Inicializa a câmera
@@ -79,6 +76,11 @@ class FaceRecognitionSystem:
     def save_img(directory, img, archive_name="sem_nome") -> None:
         makedirs(directory, exist_ok=True)
         imwrite(f"{directory}/{archive_name}.jpg", img)
+    
+    def register_acess(self, relative_path:str, acess_type:int,  name:str):
+        data = pd.read_csv(self.csv_directory)
+        data.loc[len(data)] = [self.date_and_time, self.access_types[acess_type], f'{relative_path}/{name.lower()}.jpg']
+        data.to_csv(self.csv_directory, index=False)
 
     def compare_faces_and_get_distances(self, data, new_faces):
         return(
@@ -128,23 +130,21 @@ class FaceRecognitionSystem:
 
         return access_granted, nome
     
-    def register_acess(self, relative_path:str, acess_type:int,  name:str):
-        data = pd.read_csv(self.csv_directory)
-        data.loc[len(data)] = [self.date_and_time, self.access_types[acess_type], f'{relative_path}/{name.lower()}.jpg']
-        data.to_csv(self.csv_directory, index=False)
-
-
     def run(self):
         timer = 5  # Defina o tempo de atraso (em segundos) conforme necessário
         last_access_time = datetime.now() - timedelta(seconds=timer)  # Inicialize com um tempo que permitirá a primeira ação
 
         while True:
+
             success, img = self.cap.read()
+
+            if not success:
+                print("Um problema com a webcam foi encontrado!")
+                break
 
             current_time = datetime.now()
             time_elapsed = (current_time - last_access_time).total_seconds()
             access_granted, nome = self.process_frame(img)
-
             if access_granted and time_elapsed >= timer:
                 print(f"Seja bem-vindo {nome}, acesso liberado!")
                 self.register_acess('DB', 0, nome)
@@ -154,13 +154,16 @@ class FaceRecognitionSystem:
             imshow('Webcam', img)
 
             if waitKey(1) & 0xFF == ord('q'):
+                print("Sistema sendo parado...")
                 break
-
+        
         self.cap.release()
         destroyAllWindows()
+        print("Sistema encerrado com sucesso!")
 
 
 if __name__ == '__main__':
     myDatabase = DB()
     myFaceRecognitionSystem = FaceRecognitionSystem()
     myFaceRecognitionSystem.run()
+    
