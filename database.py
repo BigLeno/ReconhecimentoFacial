@@ -1,17 +1,44 @@
 from os import listdir, path
 from cv2 import imread
 
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
+
+from models import User
+
+
 class DB:
     def __init__(self, db_directory='DB') -> None:
         """Objeto responsável por cuidar do acesso ao banco de dados com as imagens"""
         self.db_directory = db_directory
-        self.images, self.names= [], []
-        self.get_img_and_name_general()
-        
-    def get_img_and_name_general(self) -> None:
+        print("Criando conexão com Banco de Dados... ")
+        self.engine = create_engine(
+            "postgresql://postgres:docker@localhost:5432/postgres", echo=False)
+        self.session = Session(self.engine)
+
+        print("Sessão inicializada com sucesso!")
+
+        self.authorizedUsers = []
+        self.populate_authorized_users()
+
+    def populate_authorized_users(self) -> None:
         """Carrega imagens e nomes do banco de dados."""
-        print("Carregando o Banco de Dados... ")
-        for cl in listdir(self.db_directory):
-            self.images.append(imread(f'{self.db_directory}/{cl}'))
-            self.names.append(path.splitext(cl)[0])
-        print("Banco de Dados carregado com sucesso!")
+        print("Indexando o Banco de Dados... ")
+        users = select(User)
+
+        for user in self.session.scalars(users):
+            userPicture = imread(
+                f'{self.db_directory}/{user.picture_path}')
+
+            self.authorizedUsers.append((user.id, user.user_name, userPicture))
+
+        print("Banco de Dados indexado com sucesso!")
+
+    def close_connection(self) -> None:
+        self.session.close()
+        self.engine.dispose()
+        print("Instância de conexão com o banco fechada com sucesso!")
+
+    @staticmethod
+    def get_users_images(user):
+        return user[2]
