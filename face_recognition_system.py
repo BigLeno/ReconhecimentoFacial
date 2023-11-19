@@ -178,8 +178,7 @@ class FaceRecognitionSystem:
 
                     save_unknown = AccessHistory(
                         is_unknown=True, unknown_picture_path=archive_path)
-                    self.dataBase.session.add(save_unknown)
-                    self.dataBase.session.commit()
+                    self.dataBase.insert(save_unknown)
 
                     print("Acesso registrado!")
 
@@ -211,8 +210,7 @@ class FaceRecognitionSystem:
                 print(f"Seja bem-vindo {nome}, acesso liberado!")
                 self.register_acess('DB', 0, nome)
                 save_user = AccessHistory(user_id=id, is_unknown=False)
-                self.dataBase.session.add(save_user)
-                self.dataBase.session.commit()
+                self.dataBase.insert(save_user)
                 last_access_time = current_time
                 print("Acesso registrado!")
 
@@ -223,5 +221,6 @@ class FaceRecognitionSystem:
                 break
 
         self.cap.release()
+        self.dataBase.close_connection()
         destroyAllWindows()
         print("Sistema encerrado com sucesso!")

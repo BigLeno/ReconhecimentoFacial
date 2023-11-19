@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column('user_name', sa.VARCHAR(length=255), nullable=False),
         sa.Column('picture_path', sa.VARCHAR(
             length=255), nullable=False, unique=True),
-        sa.Column('created_at', sa.DateTime(timezone=True),
+        sa.Column('created_at', sa.DateTime(),
                   server_default=sa.func.now())
 
     )

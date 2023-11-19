@@ -26,8 +26,7 @@ def upgrade() -> None:
         sa.Column('is_unknown', sa.Boolean, default=True),
         sa.Column('unknown_picture_path', sa.VARCHAR(
             length=255), nullable=True),
-        sa.Column('accessed_at', sa.DateTime(
-            timezone=True), server_default=sa.func.now())
+        sa.Column('accessed_at', sa.DateTime(), server_default=sa.func.now())
     )
 
     op.create_foreign_key(

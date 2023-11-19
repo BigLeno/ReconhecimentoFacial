@@ -1,5 +1,5 @@
-from os import listdir, path
 from cv2 import imread
+from cv2.typing import MatLike
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -21,6 +21,11 @@ class DB:
         self.authorizedUsers = []
         self.populate_authorized_users()
 
+    def close_connection(self) -> None:
+        self.session.close()
+        self.engine.dispose()
+        print("Instância de conexão com o banco fechada com sucesso!")
+
     def populate_authorized_users(self) -> None:
         """Carrega imagens e nomes do banco de dados."""
         print("Indexando o Banco de Dados... ")
@@ -34,11 +39,14 @@ class DB:
 
         print("Banco de Dados indexado com sucesso!")
 
-    def close_connection(self) -> None:
-        self.session.close()
-        self.engine.dispose()
-        print("Instância de conexão com o banco fechada com sucesso!")
+    def insert(self, instance: object) -> None:
+        self.session.add(instance)
+        self.session.commit()
+
+    def delete(self, instance: object) -> None:
+        self.session.delete(instance)
+        self.session.commit()
 
     @staticmethod
-    def get_users_images(user):
+    def get_users_images(user) -> MatLike:
         return user[2]
