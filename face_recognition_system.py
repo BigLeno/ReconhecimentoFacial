@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import Tuple, Optional, List, Union
 
 from database import DB
+from mqtt import MQTTClient
 
 class FaceRecognitionSystem:
 
@@ -53,6 +54,7 @@ class FaceRecognitionSystem:
 
     def register_acess(self, relative_path:str, acess_type:int,  name:str) -> None:
         """Registra um acesso no banco de dados com informações de tempo, tipo e nome"""
+        MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA", name)
         data = pd.read_csv(self.csv_directory)
         data.loc[len(data)] = [self.date_and_time, self.access_types[acess_type], f'{relative_path}/{name.lower()}.jpg']
         data.to_csv(self.csv_directory, index=False)
