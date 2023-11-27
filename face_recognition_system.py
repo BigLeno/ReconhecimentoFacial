@@ -7,7 +7,6 @@ from multiprocessing import Pool
 from numpy import argmin
 from string import ascii_lowercase
 from random import choice
-import pandas as pd
 from datetime import datetime, timedelta
 from typing import Tuple, Optional, List, Union
 
@@ -29,7 +28,6 @@ class FaceRecognitionSystem:
             640, 480), 'hd': (1280, 720), 'full_hd': (1920, 1080)}
         self.access_types = ["Reconhecido", "Não reconhecido"]
         self.date_and_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.csv_directory = "registro_iteracoes.csv"
         print("Iniciando o Sistema de Reconhecimento Facial... \nIniciando o encoding das imagens...")
         self.find_encodings()
         print("Encoding terminado com sucesso..")
@@ -58,13 +56,6 @@ class FaceRecognitionSystem:
         """Salva uma imagem em um diretório específico com um nome de arquivo opcional"""
         makedirs(directory, exist_ok=True)
         imwrite(f"{directory}/{archive_name}.jpg", img)
-
-    def register_acess(self, relative_path: str, acess_type: int,  name: str) -> None:
-        """Registra um acesso no banco de dados com informações de tempo, tipo e nome"""
-        data = pd.read_csv(self.csv_directory)
-        data.loc[len(data)] = [self.date_and_time, self.access_types[acess_type],
-                               f'{relative_path}/{name.lower()}.jpg']
-        data.to_csv(self.csv_directory, index=False)
 
     def put_rectangles_and_text(self, image, positions: tuple, color: str, text: Optional[str] = '') -> None:
         """Adiciona retângulo e texto a uma imagem na posição especificada"""
@@ -173,7 +164,6 @@ class FaceRecognitionSystem:
                     print("Rosto desconhecido encontrado")
                     archive_path = f"RD/{unique_id}.jpg"
 
-                    self.register_acess('RD', 1, unique_id)
                     self.save_img("RD", img[top:bottom, left:right], unique_id)
                     self.unknown_faces_seen_at[unique_id] = current_time
 
@@ -181,6 +171,8 @@ class FaceRecognitionSystem:
                         is_unknown=True, unknown_picture_path=archive_path)
                     self.dataBase.insert(save_unknown)
 
+                    MQTTClient.create_and_publish(
+                        "INPACTA/ACESSO/PESSOA", unique_id)
                     print("Acesso desconhecido registrado!")
 
         return access_granted, nome, id
