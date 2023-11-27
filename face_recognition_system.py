@@ -13,6 +13,7 @@ from typing import Tuple, Optional, List, Union
 
 from database import DB
 from models import AccessHistory
+from mqtt import MQTTClient
 
 
 class FaceRecognitionSystem:
@@ -180,7 +181,7 @@ class FaceRecognitionSystem:
                         is_unknown=True, unknown_picture_path=archive_path)
                     self.dataBase.insert(save_unknown)
 
-                    print("Acesso registrado!")
+                    print("Acesso desconhecido registrado!")
 
         return access_granted, nome, id
 
@@ -212,6 +213,7 @@ class FaceRecognitionSystem:
                 save_user = AccessHistory(user_id=id, is_unknown=False)
                 self.dataBase.insert(save_user)
                 last_access_time = current_time
+                MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA", nome)
                 print("Acesso registrado!")
 
             imshow('Webcam', img)
