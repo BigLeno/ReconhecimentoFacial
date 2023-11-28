@@ -201,7 +201,6 @@ class FaceRecognitionSystem:
             access_granted, nome, id = self.process_frame(img)
             if access_granted and time_elapsed >= timer:
                 print(f"Seja bem-vindo {nome}, acesso liberado!")
-                self.register_acess('DB', 0, nome)
                 save_user = AccessHistory(user_id=id, is_unknown=False)
                 self.dataBase.insert(save_user)
                 last_access_time = current_time
