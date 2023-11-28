@@ -1,3 +1,4 @@
+import logging
 import paho.mqtt.client as mqtt
 
 
@@ -21,15 +22,15 @@ class MQTTClient:
         Callback para quando o cliente se conecta ao broker.
         """
         if rc == 0:
-            print("Conectado ao broker MQTT")
+            logging.info("Conectado ao broker MQTT")
         else:
-            print("Falha na conexão. Código de retorno:", rc)
+            logging.exception("Falha na conexão. Código de retorno:", rc)
 
     def on_disconnect(self, client, userdata, rc):
         """
         Callback para quando o cliente se desconecta do broker.
         """
-        print("Desconectado do broker MQTT")
+        logging.info("Desconectado do broker MQTT")
 
     def connect(self):
         """
@@ -47,9 +48,10 @@ class MQTTClient:
         """
         result, _ = self.client.publish(topic, message)
         if result == mqtt.MQTT_ERR_SUCCESS:
-            print("Mensagem enviada com sucesso")
+            logging.info("Mensagem enviada com sucesso")
         else:
-            print("Falha ao enviar mensagem. Código de retorno:", result)
+            logging.exception(
+                "Falha ao enviar mensagem. Código de retorno:", result)
 
     def disconnect(self):
         """
