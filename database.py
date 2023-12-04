@@ -2,6 +2,9 @@ import logging
 from cv2 import imread
 from cv2.typing import MatLike
 
+from dotenv import load_dotenv
+import os
+
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -12,9 +15,14 @@ class DB:
     def __init__(self, db_directory='DB') -> None:
         """Objeto responsável por cuidar do acesso ao banco de dados com as imagens"""
         self.db_directory = db_directory
+        load_dotenv()
         logging.info("Criando conexão com Banco de Dados... ")
-        self.engine = create_engine(
-            "postgresql://postgres:docker@localhost:5432/postgres", echo=False)
+        db_host = os.getenv("DB_HOST")
+        db_user = os.getenv("DB_USER")
+        db_pass = os.getenv("DB_PASS")
+        db_name = os.getenv("DB_NAME")
+        teste = f"postgresql://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
+        self.engine = create_engine(teste, echo=False)
         self.session = Session(self.engine)
 
         logging.info("Sessão do banco de dados inicializada com sucesso!")
