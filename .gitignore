@@ -2,3 +2,5 @@
 RD/
 teste.py
 __pycache__/
+.env
+teste.py
