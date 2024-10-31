@@ -36,7 +36,7 @@ class FaceRecognitionSystem:
         self.getWebcam()
         logging.info("Sistema iniciado sem falhas")
 
-    def getWebcam(self, quality: Optional[str] = 'vga') -> None:
+    def getWebcam(self, quality: Optional[str] = 'full_hd') -> None:
         """Inicializa a webcam com a qualidade especificada"""
         self.cap = VideoCapture(0)
         if quality not in self.quality_settings:
@@ -170,7 +170,7 @@ class FaceRecognitionSystem:
                     self.dataBase.insert(save_unknown)
 
                     MQTTClient.create_and_publish(
-                        "INPACTA/ACESSO/PESSOA", unique_id)
+                        "INPACTA/ACESSO/PESSOA/DESCONHECIDA", unique_id)
                     logging.info("Acesso desconhecido registrado!")
 
         return access_granted, nome, id
@@ -202,7 +202,7 @@ class FaceRecognitionSystem:
                 save_user = AccessHistory(user_id=id, is_unknown=False)
                 self.dataBase.insert(save_user)
                 last_access_time = current_time
-                MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA", nome)
+                MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA/CONHECIDA", nome)
                 logging.info("Acesso registrado!")
 
             imshow('Webcam', img)
