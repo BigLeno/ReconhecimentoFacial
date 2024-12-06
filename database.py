@@ -14,7 +14,7 @@ class DB:
         self.db_directory = db_directory
         logging.info("Criando conexão com Banco de Dados... ")
         self.engine = create_engine(
-            "postgresql://postgres:docker@localhost:5432/postgres", echo=False)
+            "postgresql://inpacta:recogn%40inpacta@10.6.1.30:5432/recogndb", echo=False)
         self.session = Session(self.engine)
 
         logging.info("Sessão do banco de dados inicializada com sucesso!")
