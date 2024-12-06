@@ -4,4 +4,4 @@
 screen -dmS recongsys
 
 #Executa o script do loop dentro da screen
-screen -S recongsys -X stuff 'python3 main.py\n'
+screen -S recongsys -X stuff 'cd /home/inpacta/HDD/ReconhecimentoFacial && python3 main.py\n'

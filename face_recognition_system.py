@@ -42,9 +42,9 @@ class FaceRecognitionSystem:
         if quality not in self.quality_settings:
             logging.error(f"Qualidade de webcam não suportada: {quality}")
             return
-        self.cap.set(3, self.quality_settings[quality][0])
-        self.cap.set(4, self.quality_settings[quality][1])
-        namedWindow('Webcam')
+        #self.cap.set(3, self.quality_settings[quality][0])
+        #self.cap.set(4, self.quality_settings[quality][1])
+        #namedWindow('Webcam')
 
     def find_encodings(self) -> None:
         """Gera as codificações faciais para as imagens no banco de dados"""
@@ -146,8 +146,8 @@ class FaceRecognitionSystem:
                 nome = user[1].upper()
 
                 access_granted = True
-                self.put_rectangles_and_text(
-                    img, (top, right, bottom, left), 'green', nome)
+                #self.put_rectangles_and_text(
+                #    img, (top, right, bottom, left), 'green', nome)
 
             else:
                 unique_id = f"{uuid4()}"
@@ -155,8 +155,8 @@ class FaceRecognitionSystem:
                 last_key = list(self.unknown_faces_seen_at.keys()
                                 )[-1] if self.unknown_faces_seen_at else None
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
-                self.put_rectangles_and_text(
-                    img, (top, right, bottom, left), 'red')
+                #self.put_rectangles_and_text(
+                #    img, (top, right, bottom, left), 'red')
 
                 if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
                     logging.info("Rosto desconhecido encontrado")
@@ -205,7 +205,7 @@ class FaceRecognitionSystem:
                 MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA/CONHECIDA", nome)
                 logging.info("Acesso registrado!")
 
-            imshow('Webcam', img)
+            #imshow('Webcam', img)
 
             if waitKey(1) & 0xFF == ord('q'):
                 logging.info("Encerrando sistema...")
