@@ -1,7 +1,8 @@
 import logging
+import pickle
 from uuid import uuid4
 from cv2 import (cvtColor, COLOR_BGR2RGB, VideoCapture, resize, rectangle, putText, FONT_HERSHEY_SIMPLEX,
-                 imshow, waitKey, destroyAllWindows, namedWindow, imwrite)
+                 imshow, waitKey, destroyAllWindows, namedWindow, imwrite, CAP_PROP_BUFFERSIZE, CAP_PROP_FPS)
 from face_recognition import (
     face_encodings, face_locations, compare_faces, face_distance)
 from os import (listdir, path, makedirs)
@@ -18,10 +19,11 @@ from mqtt import MQTTClient
 
 class FaceRecognitionSystem:
 
-    def __init__(self, distance_limit=0.4) -> None:
+    def __init__(self, distance_limit=0.4, camera_source=0) -> None:
         """ Objeto que representa o sistema de reconhecimento facial """
         logging.info("Iniciando o Sistema de Reconhecimento Facial...")
         self.dataBase, self.distance_limit = DB(), distance_limit
+        self.camera_source = camera_source
         self.last_file_count = self.get_file_count()
         self.unknown_faces_seen_at, self.encode_list = {}, []
         self.colors = {'red': (0, 0, 255), 'green': (
@@ -31,20 +33,22 @@ class FaceRecognitionSystem:
         self.access_types = ["Reconhecido", "Não reconhecido"]
         self.date_and_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logging.info("Iniciando o encoding das imagens...")
-        self.find_encodings()
+        self.load_encodings()
         logging.info("Encoding de imagens realizado com sucesso!")
         self.getWebcam()
         logging.info("Sistema iniciado sem falhas")
 
     def getWebcam(self, quality: Optional[str] = 'full_hd') -> None:
         """Inicializa a webcam com a qualidade especificada"""
-        self.cap = VideoCapture(0)
+        self.cap = VideoCapture(self.camera_source)
         if quality not in self.quality_settings:
             logging.error(f"Qualidade de webcam não suportada: {quality}")
             return
-        #self.cap.set(3, self.quality_settings[quality][0])
-        #self.cap.set(4, self.quality_settings[quality][1])
-        #namedWindow('Webcam')
+        self.cap.set(3, self.quality_settings[quality][0])
+        self.cap.set(4, self.quality_settings[quality][1])
+        self.cap.set(CAP_PROP_BUFFERSIZE, 1)  # Reduzir o buffer
+        self.cap.set(CAP_PROP_FPS, 30)  # Ajustar FPS se necessário
+        namedWindow('Webcam')
 
     def find_encodings(self) -> None:
         """Gera as codificações faciais para as imagens no banco de dados"""
@@ -52,6 +56,23 @@ class FaceRecognitionSystem:
             userImages = list(
                 pool.map(self.dataBase.get_users_images, self.dataBase.authorizedUsers))
             self.encode_list = pool.map(self.encode_face, userImages)
+        self.save_encodings()
+
+    def save_encodings(self) -> None:
+        """Salva as codificações faciais em um arquivo"""
+        with open('encodings.pkl', 'wb') as f:
+            pickle.dump(self.encode_list, f)
+        logging.info("Codificações faciais salvas com sucesso!")
+
+    def load_encodings(self) -> None:
+        """Carrega as codificações faciais de um arquivo, se existir"""
+        if path.exists('encodings.pkl'):
+            with open('encodings.pkl', 'rb') as f:
+                self.encode_list = pickle.load(f)
+            logging.info("Codificações faciais carregadas com sucesso!")
+        else:
+            logging.info("Arquivo de codificações não encontrado. Gerando novas codificações...")
+            self.find_encodings()
 
     @staticmethod
     def save_img(directory, img, archive_name: Optional[str] = "sem_nome") -> None:
@@ -146,8 +167,8 @@ class FaceRecognitionSystem:
                 nome = user[1].upper()
 
                 access_granted = True
-                #self.put_rectangles_and_text(
-                #    img, (top, right, bottom, left), 'green', nome)
+                self.put_rectangles_and_text(
+                   img, (top, right, bottom, left), 'green', nome)
 
             else:
                 unique_id = f"{uuid4()}"
@@ -155,8 +176,8 @@ class FaceRecognitionSystem:
                 last_key = list(self.unknown_faces_seen_at.keys()
                                 )[-1] if self.unknown_faces_seen_at else None
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
-                #self.put_rectangles_and_text(
-                #    img, (top, right, bottom, left), 'red')
+                self.put_rectangles_and_text(
+                   img, (top, right, bottom, left), 'red')
 
                 if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
                     logging.info("Rosto desconhecido encontrado")
@@ -169,8 +190,8 @@ class FaceRecognitionSystem:
                         is_unknown=True, unknown_picture_path=archive_path)
                     self.dataBase.insert(save_unknown)
 
-                    MQTTClient.create_and_publish(
-                        "INPACTA/ACESSO/PESSOA/DESCONHECIDA", unique_id)
+                    # MQTTClient.create_and_publish(
+                    #     "INPACTA/ACESSO/PESSOA/DESCONHECIDA", unique_id)
                     logging.info("Acesso desconhecido registrado!")
 
         return access_granted, nome, id
@@ -202,10 +223,10 @@ class FaceRecognitionSystem:
                 save_user = AccessHistory(user_id=id, is_unknown=False)
                 self.dataBase.insert(save_user)
                 last_access_time = current_time
-                MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA/CONHECIDA", nome)
+                # MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA/CONHECIDA", nome)
                 logging.info("Acesso registrado!")
 
-            #imshow('Webcam', img)
+            imshow('Webcam', img)
 
             if waitKey(1) & 0xFF == ord('q'):
                 logging.info("Encerrando sistema...")
