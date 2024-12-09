@@ -2,3 +2,4 @@
 teste.py
 __pycache__/
 .env
+/env
