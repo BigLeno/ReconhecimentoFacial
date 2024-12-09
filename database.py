@@ -37,7 +37,7 @@ class DB:
                 f'{self.db_directory}/{user.picture_path}')
 
             if userPicture is None:
-                logging.warn(
+                logging.warning(
                     f"Não foi possível encontrar a foto do usuário {user.user_name} na pasta DB! Prosseguindo...")
                 continue
 
