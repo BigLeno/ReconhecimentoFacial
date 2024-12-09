@@ -108,6 +108,8 @@ class FaceRecognitionSystem:
         if (current_file_count != self.last_file_count):
             logging.info("\n---------------------------\n")
             logging.info("\nA pasta foi atualizada...")
+            logging.info("\nAtualizando usuários no banco de dados...")
+            self.dataBase.update_users_from_directory()
             logging.info("\nReabrindo instância do banco de dados...")
             self.dataBase.close_connection()
             self.dataBase = DB()
