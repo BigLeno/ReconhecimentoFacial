@@ -36,17 +36,14 @@ class FaceRecognitionSystem:
         self.getWebcam()
         logging.info("Sistema iniciado sem falhas")
 
-    def getWebcam(self, quality: Optional[str] = 'full_hd', ip_camera_url: Optional[str] = None) -> None:
-        """Inicializa a webcam ou câmera IP com a qualidade especificada"""
-        if ip_camera_url:
-            self.cap = VideoCapture(ip_camera_url)
-        else:
-            self.cap = VideoCapture(0)
-            if quality not in self.quality_settings:
-                logging.error(f"Qualidade de webcam não suportada: {quality}")
-                return
-            #self.cap.set(3, self.quality_settings[quality][0])
-            #self.cap.set(4, self.quality_settings[quality][1])
+    def getWebcam(self, quality: Optional[str] = 'full_hd') -> None:
+        """Inicializa a webcam com a qualidade especificada"""
+        self.cap = VideoCapture(0)
+        if quality not in self.quality_settings:
+            logging.error(f"Qualidade de webcam não suportada: {quality}")
+            return
+        #self.cap.set(3, self.quality_settings[quality][0])
+        #self.cap.set(4, self.quality_settings[quality][1])
         #namedWindow('Webcam')
 
     def find_encodings(self) -> None:
@@ -86,7 +83,7 @@ class FaceRecognitionSystem:
             Quando a pasta é atualizada, recarrega o banco de dados e recria as codificações.
         """
         current_file_count = self.get_file_count()
-        if (current_file_count != self.last_file_count):
+        if current_file_count != self.last_file_count:
             logging.info("\n---------------------------\n")
             logging.info("\nA pasta foi atualizada...")
             logging.info("\nReabrindo instância do banco de dados...")
@@ -178,8 +175,8 @@ class FaceRecognitionSystem:
 
         return access_granted, nome, id
 
-    def run(self, ip_camera_url: Optional[str] = None) -> None:
-        """Inicia o sistema de reconhecimento facial e controla a webcam ou câmera IP em um loop contínuo."""
+    def run(self) -> None:
+        """Inicia o sistema de reconhecimento facial e controla a webcam em um loop contínuo."""
         timer = 5
         last_access_time = datetime.now() - timedelta(seconds=timer)
 
@@ -187,8 +184,6 @@ class FaceRecognitionSystem:
             logging.fatal(
                 'Ocorreu uma exceção: Não existem usuários cadastrados no banco de dados!')
             return
-
-        self.getWebcam(ip_camera_url=ip_camera_url)
 
         while True:
             success, img = self.cap.read()
