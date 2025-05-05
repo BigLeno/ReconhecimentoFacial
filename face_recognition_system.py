@@ -45,14 +45,14 @@ class FaceRecognitionSystem:
     def getWebcam(self, quality: Optional[str] = 'full_hd') -> None:
         """Inicializa a webcam com a qualidade especificada"""
         self.cap = VideoCapture(self.camera_source)
-        if quality not in self.quality_settings:
-            logging.error(f"Qualidade de webcam não suportada: {quality}")
-            return
-        self.cap.set(3, self.quality_settings[quality][0])
-        self.cap.set(4, self.quality_settings[quality][1])
-        self.cap.set(CAP_PROP_BUFFERSIZE, 1)  # Reduzir o buffer
-        self.cap.set(CAP_PROP_FPS, 30)  # Ajustar FPS se necessário
-        namedWindow('Webcam')
+        # if quality not in self.quality_settings:
+        #     logging.error(f"Qualidade de webcam não suportada: {quality}")
+        #     return
+        # self.cap.set(3, self.quality_settings[quality][0])
+        # self.cap.set(4, self.quality_settings[quality][1])
+        # self.cap.set(CAP_PROP_BUFFERSIZE, 1)  # Reduzir o buffer
+        # self.cap.set(CAP_PROP_FPS, 30)  # Ajustar FPS se necessário
+        # namedWindow('Webcam')
 
     def find_encodings(self) -> None:
         """Gera as codificações faciais para as imagens no banco de dados"""
@@ -241,7 +241,7 @@ class FaceRecognitionSystem:
                                         "INPACTA/ACESSO/PESSOA/CONHECIDA", nome)
                         logging.info("Acesso registrado!")
 
-                    imshow('Webcam', img)
+                    #imshow('Webcam', img)
 
                     if waitKey(1) & 0xFF == ord('q'):
                         logging.info("Encerrando sistema...")
