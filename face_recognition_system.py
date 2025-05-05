@@ -1,7 +1,9 @@
 import logging
+import pickle
 from uuid import uuid4
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from cv2 import (cvtColor, COLOR_BGR2RGB, VideoCapture, resize, rectangle, putText, FONT_HERSHEY_SIMPLEX,
-                 imshow, waitKey, destroyAllWindows, namedWindow, imwrite)
+                 imshow, waitKey, destroyAllWindows, namedWindow, imwrite, CAP_PROP_BUFFERSIZE, CAP_PROP_FPS)
 from face_recognition import (
     face_encodings, face_locations, compare_faces, face_distance)
 from os import (listdir, path, makedirs)
@@ -18,10 +20,11 @@ from mqtt import MQTTClient
 
 class FaceRecognitionSystem:
 
-    def __init__(self, distance_limit=0.4) -> None:
+    def __init__(self, distance_limit=0.4, camera_source=0) -> None:
         """ Objeto que representa o sistema de reconhecimento facial """
         logging.info("Iniciando o Sistema de Reconhecimento Facial...")
         self.dataBase, self.distance_limit = DB(), distance_limit
+        self.camera_source = camera_source
         self.last_file_count = self.get_file_count()
         self.unknown_faces_seen_at, self.encode_list = {}, []
         self.colors = {'red': (0, 0, 255), 'green': (
@@ -31,20 +34,22 @@ class FaceRecognitionSystem:
         self.access_types = ["Reconhecido", "Não reconhecido"]
         self.date_and_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logging.info("Iniciando o encoding das imagens...")
-        self.find_encodings()
+        self.load_encodings()
         logging.info("Encoding de imagens realizado com sucesso!")
         self.getWebcam()
         logging.info("Sistema iniciado sem falhas")
 
     def getWebcam(self, quality: Optional[str] = 'full_hd') -> None:
         """Inicializa a webcam com a qualidade especificada"""
-        self.cap = VideoCapture(0)
+        self.cap = VideoCapture(self.camera_source)
         if quality not in self.quality_settings:
             logging.error(f"Qualidade de webcam não suportada: {quality}")
             return
-        #self.cap.set(3, self.quality_settings[quality][0])
-        #self.cap.set(4, self.quality_settings[quality][1])
-        #namedWindow('Webcam')
+        self.cap.set(3, self.quality_settings[quality][0])
+        self.cap.set(4, self.quality_settings[quality][1])
+        self.cap.set(CAP_PROP_BUFFERSIZE, 1)  # Reduzir o buffer
+        self.cap.set(CAP_PROP_FPS, 30)  # Ajustar FPS se necessário
+        namedWindow('Webcam')
 
     def find_encodings(self) -> None:
         """Gera as codificações faciais para as imagens no banco de dados"""
@@ -52,6 +57,23 @@ class FaceRecognitionSystem:
             userImages = list(
                 pool.map(self.dataBase.get_users_images, self.dataBase.authorizedUsers))
             self.encode_list = pool.map(self.encode_face, userImages)
+        self.save_encodings()
+
+    def save_encodings(self) -> None:
+        """Salva as codificações faciais em um arquivo"""
+        with open('encodings.pkl', 'wb') as f:
+            pickle.dump(self.encode_list, f)
+        logging.info("Codificações faciais salvas com sucesso!")
+
+    def load_encodings(self) -> None:
+        """Carrega as codificações faciais de um arquivo, se existir"""
+        if path.exists('encodings.pkl'):
+            with open('encodings.pkl', 'rb') as f:
+                self.encode_list = pickle.load(f)
+            logging.info("Codificações faciais carregadas com sucesso!")
+        else:
+            logging.info("Arquivo de codificações não encontrado. Gerando novas codificações...")
+            self.find_encodings()
 
     @staticmethod
     def save_img(directory, img, archive_name: Optional[str] = "sem_nome") -> None:
@@ -83,9 +105,11 @@ class FaceRecognitionSystem:
             Quando a pasta é atualizada, recarrega o banco de dados e recria as codificações.
         """
         current_file_count = self.get_file_count()
-        if current_file_count != self.last_file_count:
+        if (current_file_count != self.last_file_count):
             logging.info("\n---------------------------\n")
             logging.info("\nA pasta foi atualizada...")
+            logging.info("\nAtualizando usuários no banco de dados...")
+            self.dataBase.update_users_from_directory()
             logging.info("\nReabrindo instância do banco de dados...")
             self.dataBase.close_connection()
             self.dataBase = DB()
@@ -107,12 +131,11 @@ class FaceRecognitionSystem:
     @staticmethod
     def find_faces(img) -> List[Tuple[list, list]]:
         """Encontra e retorna as codificações e localizações dos rostos em uma imagem."""
+        small_img = resize(img, (0, 0), None, 0.25, 0.25)
+        rgb_small_img = cvtColor(small_img, COLOR_BGR2RGB)
         return list(zip(
-            face_encodings(
-                cvtColor(resize(img, (0, 0), None, 0.25, 0.25), COLOR_BGR2RGB),
-                face_locations(cvtColor(resize(img, (0, 0), None, 0.25, 0.25), COLOR_BGR2RGB))),
-            face_locations(
-                cvtColor(resize(img, (0, 0), None, 0.25, 0.25), COLOR_BGR2RGB))
+            face_encodings(rgb_small_img),
+            face_locations(rgb_small_img)
         ))
 
     def compare_faces_and_get_distances(self, data, new_faces) -> Tuple[list, NDArray | Any, NDArray]:
@@ -123,7 +146,7 @@ class FaceRecognitionSystem:
             argmin(face_distance(data, new_faces))
         )
 
-    def process_frame(self, img) -> Tuple[bool, str]:
+    def process_frame(self, img) -> Tuple[bool, str, int]:
         """
             Processa um frame de imagem para reconhecimento facial e 
             retorna se o acesso foi concedido e o nome, se reconhecido.
@@ -146,8 +169,8 @@ class FaceRecognitionSystem:
                 nome = user[1].upper()
 
                 access_granted = True
-                #self.put_rectangles_and_text(
-                #    img, (top, right, bottom, left), 'green', nome)
+                self.put_rectangles_and_text(
+                   img, (top, right, bottom, left), 'green', nome)
 
             else:
                 unique_id = f"{uuid4()}"
@@ -155,8 +178,8 @@ class FaceRecognitionSystem:
                 last_key = list(self.unknown_faces_seen_at.keys()
                                 )[-1] if self.unknown_faces_seen_at else None
                 last_seen = self.unknown_faces_seen_at.get(last_key, None)
-                #self.put_rectangles_and_text(
-                #    img, (top, right, bottom, left), 'red')
+                self.put_rectangles_and_text(
+                   img, (top, right, bottom, left), 'red')
 
                 if last_seen is None or (current_time - last_seen).total_seconds() >= time_delay:
                     logging.info("Rosto desconhecido encontrado")
@@ -169,8 +192,10 @@ class FaceRecognitionSystem:
                         is_unknown=True, unknown_picture_path=archive_path)
                     self.dataBase.insert(save_unknown)
 
-                    MQTTClient.create_and_publish(
-                        "INPACTA/ACESSO/PESSOA/DESCONHECIDA", unique_id)
+                    # Publicar mensagem MQTT de forma concorrente
+                    with ThreadPoolExecutor(max_workers=1) as mqtt_executor:
+                        mqtt_executor.submit(MQTTClient.create_and_publish,
+                                             "INPACTA/ACESSO/PESSOA/DESCONHECIDA", unique_id)
                     logging.info("Acesso desconhecido registrado!")
 
         return access_granted, nome, id
@@ -185,31 +210,44 @@ class FaceRecognitionSystem:
                 'Ocorreu uma exceção: Não existem usuários cadastrados no banco de dados!')
             return
 
-        while True:
-            success, img = self.cap.read()
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            while True:
+                try:
+                    success, img = self.cap.read()
 
-            if not success:
-                logging.fatal("Um problema com a webcam foi encontrado!")
-                break
+                    if not success:
+                        logging.error("Um problema com a webcam foi encontrado! Tentando reconectar...")
+                        self.cap.release()
+                        self.getWebcam()
+                        continue
 
-            self.monitor_directory()
+                    self.monitor_directory()
 
-            current_time = datetime.now()
-            time_elapsed = (current_time - last_access_time).total_seconds()
-            access_granted, nome, id = self.process_frame(img)
-            if access_granted and time_elapsed >= timer:
-                logging.info(f"Seja bem-vindo {nome}, acesso liberado!")
-                save_user = AccessHistory(user_id=id, is_unknown=False)
-                self.dataBase.insert(save_user)
-                last_access_time = current_time
-                MQTTClient.create_and_publish("INPACTA/ACESSO/PESSOA/CONHECIDA", nome)
-                logging.info("Acesso registrado!")
+                    current_time = datetime.now()
+                    time_elapsed = (current_time - last_access_time).total_seconds()
+                    future = executor.submit(self.process_frame, img)
+                    access_granted, nome, id = future.result()
+                    if access_granted and time_elapsed >= timer:
+                        logging.info(f"Seja bem-vindo {nome}, acesso liberado!")
+                        save_user = AccessHistory(user_id=id, is_unknown=False)
+                        self.dataBase.insert(save_user)
+                        last_access_time = current_time
 
-            #imshow('Webcam', img)
+                        # Publicar mensagem MQTT de forma concorrente
+                        executor.submit(MQTTClient.create_and_publish,
+                                        "INPACTA/ACESSO/PESSOA/CONHECIDA", nome)
+                        logging.info("Acesso registrado!")
 
-            if waitKey(1) & 0xFF == ord('q'):
-                logging.info("Encerrando sistema...")
-                break
+                    imshow('Webcam', img)
+
+                    if waitKey(1) & 0xFF == ord('q'):
+                        logging.info("Encerrando sistema...")
+                        break
+
+                except Exception as e:
+                    logging.error(f"Erro durante o processamento do frame: {e}")
+                    self.cap.release()
+                    self.getWebcam()
 
         self.cap.release()
         self.dataBase.close_connection()
