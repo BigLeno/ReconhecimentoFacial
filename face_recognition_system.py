@@ -12,6 +12,7 @@ from numpy import argmin
 from numpy.typing import NDArray
 from datetime import datetime, timedelta
 from typing import Any, Tuple, Optional, List
+import os  # Adicionado para manipular variáveis de ambiente
 
 from database import DB
 from models import AccessHistory
@@ -22,6 +23,8 @@ class FaceRecognitionSystem:
 
     def __init__(self, distance_limit=0.4, camera_source=0) -> None:
         """ Objeto que representa o sistema de reconhecimento facial """
+        # Configuração para evitar erro do plugin Qt
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
         logging.info("Iniciando o Sistema de Reconhecimento Facial...")
         self.dataBase, self.distance_limit = DB(), distance_limit
         self.camera_source = camera_source
